@@ -1,0 +1,37 @@
+{
+  "templates": [
+    {
+      "id": "tablette",
+      "name": "Preset 1",
+      "blend": "tablette/template.blend",
+      "thumbnail": "tablette/thumbnail.png",
+      "video": "tablette/video.mp4",
+      "duration": "38 sec",
+      "preset_plans": [
+        "Plan 1 - Desktop", "Plan 2 - Desktop", "Plan 3 - Desktop", "Plan 4 - Desktop",
+        "Plan 5 - Desktop", "Plan 6 - Desktop", "Plan 7 - Transition",
+        "Plan 8 - Mobile", "Plan 9 - Mobile"
+      ]
+    },
+    {
+      "id": "projet2",
+      "name": "Preset 2",
+      "blend": "projet2/template.blend"
+    },
+    {
+      "id": "projet3",
+      "name": "Preset 3",
+      "blend": "projet3/template.blend"
+    },
+    {
+      "id": "projet4",
+      "name": "Preset 4",
+      "blend": "projet4/template.blend"
+    },
+    {
+      "id": "projet5",
+      "name": "Preset 5",
+      "blend": "projet5/template.blend"
+    }
+  ]
+}

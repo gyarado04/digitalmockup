@@ -1,0 +1,31 @@
+# Artefacts de build Swift — jamais versionnés, reconstruits localement
+swift-app/.build/
+swift-app/dist/
+
+# Ancien app Python (PySide6, pré-portage Swift) — gardé en LOCAL comme
+# référence historique, volontairement PAS versionné dans ce repo public :
+# ce repo documente la version Swift finale, pas le prototype superseded.
+# packaging/assets/ est PARTAGÉ (icône réutilisée par swift-app/packaging/
+# build_app.sh) — gardé ; seul le packaging PyInstaller Python est exclu.
+app/
+run_app.py
+requirements.txt
+packaging/*.spec
+packaging/build_app.sh
+# Contexte IA détaillé (mentionne l'ancienne architecture Python) — gardé
+# en LOCAL sans être publié. /README.md lui-même a été RÉÉCRIT (pas
+# exclu) pour décrire la version Swift actuelle.
+/CONTEXTE_APP_POUR_IA.md
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Sauvegardes automatiques Blender
+*.blend1
+
+# Clé privée Sparkle (signature des mises à jour) — JAMAIS dans le repo,
+# même privé. Générée localement par packaging/sparkle_keys/generate_keys,
+# gardée dans le Trousseau macOS uniquement (voir README "Mises à jour").
+*.pem
+sparkle_private_key*
