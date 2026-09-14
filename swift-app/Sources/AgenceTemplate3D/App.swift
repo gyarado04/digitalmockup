@@ -16,8 +16,10 @@ struct AgenceTemplate3DApp: App {
     /// `SUEnableAutomaticChecks`/`SUScheduledCheckInterval` de l'Info.plist
     /// — pas de vérification intrusive au tout premier lancement grâce à
     /// Sparkle qui attend un délai avant la 1ère vérif auto). L'entrée de
-    /// menu "Rechercher les mises à jour…" (plus bas, `.commands`) permet
-    /// aussi de la déclencher à la demande.
+    /// menu "Rechercher les mises à jour…" est MASQUÉE pour l'instant
+    /// (voir commentaire dans `.commands` plus bas) — `updaterController`
+    /// reste quand même actif en arrière-plan (inoffensif, confirmé
+    /// inerte tant que l'app n'a qu'une signature ad-hoc).
     private let updaterController = SPUStandardUpdaterController(
         startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
     )
@@ -61,14 +63,23 @@ struct AgenceTemplate3DApp: App {
         // _build_menu — cette app est mono-fenêtre, "Nouvelle fenêtre"
         // n'aurait aucun sens ici.
         .commands {
-            // Emplacement standard Sparkle : juste après "À propos de…"
-            // dans le menu de l'app (`.appInfo`), avant les entrées
-            // Fichier remplacées ci-dessous.
-            CommandGroup(after: .appInfo) {
-                Button("Rechercher les mises à jour…") {
-                    updaterController.checkForUpdates(nil)
-                }
-            }
+            // Entrée de menu "Rechercher les mises à jour…" MASQUÉE le
+            // 2026-09-14 (demande explicite) — tant que l'app n'a qu'une
+            // signature ad-hoc, Sparkle ne peut de toute façon rien
+            // trouver (voir README.md "Mises à jour automatiques" —
+            // Library Validation du runtime durci bloque
+            // Sparkle.framework sans un vrai certificat Developer ID) :
+            // un bouton qui ne fait rien de visible aurait juste
+            // dérouté un collègue curieux. `updaterController` reste
+            // actif en arrière-plan (inoffensif, confirmé inerte) —
+            // pour réactiver ce menu le jour où un vrai certificat est
+            // disponible, redécommenter ce `CommandGroup` :
+            //
+            // CommandGroup(after: .appInfo) {
+            //     Button("Rechercher les mises à jour…") {
+            //         updaterController.checkForUpdates(nil)
+            //     }
+            // }
             CommandGroup(replacing: .newItem) {
                 Button("Nouveau projet depuis un template…") { appState.showTemplatePicker = true }
                 Button("Ouvrir un fichier .blend existant…") { appState.presentOpenBlendPanel() }
