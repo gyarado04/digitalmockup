@@ -845,6 +845,28 @@ arrière possible sans réinstaller).
   (~400 Mo), nom de dossier volontairement SANS tiret cadratin (`—`) pour
   éviter tout souci d'encodage avec d'autres outils de décompression que
   ceux d'Apple.
+  - **Piège iCloud Drive rencontré en reconstruisant ce zip le
+    2026-09-14** (après le fix du certificat Sparkle, pour renvoyer une
+    version à jour) : assembler ce dossier "Installation" (app + gros
+    `.dmg` Blender, ~400 Mo) DIRECTEMENT dans `swift-app/dist/` — donc
+    DANS le dossier du projet, synchronisé par iCloud Drive — a produit
+    un zip CORROMPU (`ditto -c` a levé des erreurs "No such file or
+    directory"/"Operation not permitted" en cours de route, et jusqu'aux
+    fichiers source ont disparu du dossier juste après) : même souci
+    iCloud déjà documenté ailleurs dans ce fichier pour la signature
+    (`packaging/build_app.sh`'s en-tête) — iCloud retague/évince des
+    fichiers en plein milieu d'une grosse opération. **Fix** : assembler
+    ce dossier "Installation" HORS d'iCloud, dans
+    `~/Library/Caches/AgenceTemplate3D-Swift/build/` (déjà le
+    `BUILD_ROOT` que `build_app.sh` utilise pour la même raison), zipper
+    là-bas, puis copier SEULEMENT le `.zip` final (une seule grosse copie,
+    pas des centaines de petites écritures) vers `dist/` à la toute fin.
+    **Leçon générale à ne pas re-perdre** : sur cette machine, TOUTE
+    opération de fichiers volumineuse/nombreuse (build, signature, zip
+    multi-fichiers) doit se faire HORS du dossier du projet
+    (iCloud-synced) — vérifier `unzip -l`/`unzip -t` après coup si un
+    doute existe, un zip corrompu peut sembler s'être créé sans erreur
+    visible dans certains cas.
 
 ## Mises à jour automatiques (Sparkle) — 2026-09-14
 
