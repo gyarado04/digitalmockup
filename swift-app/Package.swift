@@ -27,6 +27,14 @@ import PackageDescription
 let package = Package(
     name: "AgenceTemplate3D",
     platforms: [.macOS(.v14)],
+    // Sparkle : mises à jour auto (2026-09-14, demande explicite — "sans
+    // qu'ils aient besoin de la réinstaller"). Version épinglée (comme le
+    // reste des dépendances externes de ce projet, ex. les CDN des
+    // artifacts) plutôt qu'une plage — évite qu'une mise à jour de Sparkle
+    // lui-même change de comportement sans qu'on l'ait décidé.
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.0")
+    ],
     targets: [
         .target(
             name: "AgenceTemplate3DCore",
@@ -34,7 +42,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "AgenceTemplate3D",
-            dependencies: ["AgenceTemplate3DCore"],
+            dependencies: [
+                "AgenceTemplate3DCore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             path: "Sources/AgenceTemplate3D",
             // Police Monument Grotesk (design fourni par l'utilisateur,
             // 2026-09-02) — embarquée et enregistrée au lancement

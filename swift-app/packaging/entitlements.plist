@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Sparkle (2026-09-14) + signature ad-hoc (pas de certificat développeur
+      Apple payant sur ce projet) : sans cette entitlement, le "Library
+      Validation" du runtime durci rejette Sparkle.framework au chargement
+      ("The file is adhoc signed or signed by an unknown certificate
+      chain", constaté via `amfid` dans les logs système) — l'app
+      démarre quand même, mais Sparkle ne vérifie JAMAIS de mise à jour en
+      silence (aucun log, aucune connexion réseau, confirmé via `lsof`).
+      Limitation documentée de Sparkle en ad-hoc, PAS un bug de ce projet :
+      https://developer.apple.com/forums/thread/737571 — la vraie solution
+      "propre" est un certificat Developer ID payant, non disponible ici.
+      Désactiver la validation de bibliothèque reste cohérent avec la
+      posture de sécurité déjà établie de ce projet (app déjà distribuée
+      ad-hoc, l'utilisateur contourne déjà Gatekeeper au 1er lancement).
+    -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

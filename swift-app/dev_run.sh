@@ -25,6 +25,17 @@ cp .build/debug/AgenceTemplate3D "$APP_DIR/Contents/MacOS/AgenceTemplate3D"
 rm -rf "$APP_DIR/Contents/Resources/AgenceTemplate3D_AgenceTemplate3D.bundle"
 cp -R .build/debug/AgenceTemplate3D_AgenceTemplate3D.bundle "$APP_DIR/Contents/Resources/"
 
+# Sparkle.framework (mises à jour auto, 2026-09-14) — l'exécutable le lie
+# en `@rpath/Sparkle.framework/...`, et `@loader_path` (déjà présent parmi
+# ses rpaths, posé par SwiftPM lui-même, vérifié via `otool -l`) résout au
+# dossier CONTENANT l'exécutable, donc Contents/MacOS/ ici — PAS
+# Contents/Frameworks/ (convention Xcode habituelle, mais inutile ici :
+# aucun rpath ne pointe dessus, ça aurait juste ajouté une étape
+# `install_name_tool -add_rpath` pour rien). Sans lui, l'app ne lance même
+# pas (dylib manquant, échec au chargement, pas une erreur Sparkle).
+rm -rf "$APP_DIR/Contents/MacOS/Sparkle.framework"
+cp -R .build/debug/Sparkle.framework "$APP_DIR/Contents/MacOS/"
+
 # Icône (2026-09-08) — même fichier que le build signé
 # (packaging/build_app.sh) : la voir aussi en dev évite les surprises
 # ("ça avait l'air bien mais elle n'apparaît que dans le vrai build").

@@ -1,9 +1,26 @@
+import Sparkle
 import SwiftUI
 
 /// Point d'entrée de l'app.
 @main
 struct AgenceTemplate3DApp: App {
     @State private var appState = AppState()
+
+    /// Mises à jour automatiques (Sparkle, 2026-09-14, demande explicite —
+    /// "sans qu'ils aient besoin de la réinstaller"). `let` simple (pas
+    /// `@State`) : `SPUStandardUpdaterController` est une classe (référence
+    /// stable), et ce `App` SwiftUI n'est instancié qu'une fois pour toute
+    /// la vie du process — même pattern que documenté par Sparkle
+    /// lui-même pour SwiftUI. `startingUpdater: true` : démarre le
+    /// vérificateur en arrière-plan dès le lancement (respecte
+    /// `SUEnableAutomaticChecks`/`SUScheduledCheckInterval` de l'Info.plist
+    /// — pas de vérification intrusive au tout premier lancement grâce à
+    /// Sparkle qui attend un délai avant la 1ère vérif auto). L'entrée de
+    /// menu "Rechercher les mises à jour…" (plus bas, `.commands`) permet
+    /// aussi de la déclencher à la demande.
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
+    )
 
     init() {
         AppFonts.registerBundledFonts()
@@ -44,6 +61,14 @@ struct AgenceTemplate3DApp: App {
         // _build_menu — cette app est mono-fenêtre, "Nouvelle fenêtre"
         // n'aurait aucun sens ici.
         .commands {
+            // Emplacement standard Sparkle : juste après "À propos de…"
+            // dans le menu de l'app (`.appInfo`), avant les entrées
+            // Fichier remplacées ci-dessous.
+            CommandGroup(after: .appInfo) {
+                Button("Rechercher les mises à jour…") {
+                    updaterController.checkForUpdates(nil)
+                }
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Nouveau projet depuis un template…") { appState.showTemplatePicker = true }
                 Button("Ouvrir un fichier .blend existant…") { appState.presentOpenBlendPanel() }

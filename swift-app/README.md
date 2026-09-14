@@ -846,6 +846,124 @@ arrière possible sans réinstaller).
   éviter tout souci d'encodage avec d'autres outils de décompression que
   ceux d'Apple.
 
+## Mises à jour automatiques (Sparkle) — 2026-09-14
+
+Demande explicite : "comment on peut faire pour que je puisse faire des
+mises a jour de l'app sans qu'ils ai besoin de la réinstaller ?" — décidé
+avec l'utilisateur (2 questions posées) : hébergement sur **GitHub**
+(repo public [`gyarado04/digitalmockup`](https://github.com/gyarado04/digitalmockup)),
+mécanisme **Sparkle** (le standard macOS hors App Store), pas une simple
+notification+lien.
+
+### Mise en place
+- **Repo Git créé** (le projet n'en avait pas) — voir `.gitignore` pour ce
+  qui est volontairement exclu : `.build/`/`dist/` (artefacts), l'ancien
+  app Python (`app/`, `run_app.py`, `requirements.txt`, packaging
+  PyInstaller à la racine — gardés en LOCAL comme référence historique,
+  pas publiés), `CONTEXTE_APP_POUR_IA.md`, la clé privée Sparkle. Le
+  `README.md` racine, lui, a été RÉÉCRIT (pas exclu) pour décrire la
+  version Swift actuelle plutôt que l'archi Python obsolète.
+- **Sparkle 2.10.0** ajouté via SPM (`Package.swift`, dépendance exacte
+  épinglée). `App.swift` : `SPUStandardUpdaterController` (démarré
+  `startingUpdater: true` dans l'`init`) + entrée de menu "Rechercher les
+  mises à jour…" (`CommandGroup(after: .appInfo)`, emplacement standard
+  Sparkle).
+- **Clé de signature EdDSA** générée (`generate_keys`, stockée dans le
+  Trousseau) — `SUPublicEDKey` posée dans l'Info.plist des 2 scripts de
+  build.
+- **`Sparkle.framework` embarqué** dans `Contents/MacOS/` (PAS
+  `Contents/Frameworks/`, convention Xcode habituelle mais inutile ici :
+  l'exécutable le lie via `@rpath/Sparkle.framework/...`, et
+  `@loader_path` — déjà présent parmi ses rpaths, posé par SwiftPM lui-
+  même, vérifié via `otool -l` — résout déjà au dossier CONTENANT
+  l'exécutable). Copié dans `dev_run.sh` ET `packaging/build_app.sh`
+  (sans lui, l'app ne lance même pas — dylib manquant au chargement).
+- **`SUFeedURL`** = `https://raw.githubusercontent.com/gyarado04/digitalmockup/main/appcast.xml`
+  — l'app installée relit périodiquement ce fichier (`SUEnableAutomaticChecks`
+  + `SUScheduledCheckInterval`=86400s) pour savoir si une version plus
+  récente existe.
+- **`packaging/build_app.sh`** prend maintenant 2 arguments optionnels,
+  `VERSION` et `BUILD_NUMBER` (`CFBundleShortVersionString`/
+  `CFBundleVersion`) — défauts sensés pour un simple build de test local
+  (`"0.0.0"`/timestamp Unix) si omis.
+- **`packaging/release.sh`** (nouveau) — orchestre une VRAIE publication :
+  build signé → signature EdDSA du zip (`sign_update`) → nouvelle entrée
+  dans `appcast.xml` (script Python inline, insérée en tête de liste) →
+  commit + push de l'appcast et du compteur de build
+  (`packaging/BUILD_NUMBER`, tracké en Git) → `gh release create` avec le
+  zip en pièce jointe. Usage : `./packaging/release.sh 1.2.0`.
+- **v1.0.0 publiée** avec ce pipeline — appcast et zip vérifiés
+  publiquement accessibles (`curl`, taille exacte = celle signée).
+
+### Piège rencontré en signant : Keychain bloqué en headless
+`sign_update` lit la clé privée depuis le Trousseau par défaut, ce qui
+déclenche une fenêtre d'autorisation système (SecurityAgent) — invisible
+et impossible à approuver depuis une session Claude Code (jamais de
+computer-use sur ce projet). Pire : l'autorisation donnée en cliquant
+"Toujours autoriser" dans le Terminal de l'utilisateur NE S'APPLIQUE PAS
+aux commandes lancées par Claude (ACL liée au process appelant, pas
+juste à l'outil). **Fix définitif** : exporter la clé privée dans un
+fichier local (`generate_keys -x packaging/sparkle_private_key.pem`, une
+seule fois, avec l'aide de l'utilisateur dans SON Terminal) puis
+`sign_update --ed-key-file packaging/sparkle_private_key.pem` pour
+toutes les signatures futures — aucune interaction Trousseau requise.
+Fichier **jamais committé** (`.gitignore` : `sparkle_private_key*`).
+
+### ⚠️ LIMITE CONNUE, PAS ENCORE RÉSOLUE : Sparkle inerte en signature ad-hoc
+Après tout le pipeline mis en place et une v1.0.0 publiée, **le
+vérificateur de mise à jour ne se déclenche jamais en pratique** sur
+cette machine — confirmé rigoureusement (`/usr/bin/log show` — PAS le
+`log` de zsh, un builtin qui piège avec "too many arguments" ; `lsof -i`
+sur le process ; `ps aux` pour un XPC Sparkle qui ne spawn jamais) :
+aucune requête réseau, aucun log Sparkle, quelle que soit la localisation
+de l'app (`dist/` ou `/Applications`).
+
+**Cause identifiée précisément** (log `amfid`, confirmée par recherche
+web sur le forum développeur Apple) :
+```
+amfid: .../Sparkle.framework/Versions/B/Sparkle not valid:
+Error Domain=AppleMobileFileIntegrityError Code=-423
+"The file is adhoc signed or signed by an unknown certificate chain"
+```
+La **"Library Validation"** du runtime durci macOS rejette
+`Sparkle.framework` (lui-même ad-hoc signé par le projet Sparkle) parce
+que l'app hôte n'a PAS de vrai certificat développeur Apple — limitation
+DOCUMENTÉE de Sparkle en environnement 100% ad-hoc (voir
+[developer.apple.com/forums/thread/737571](https://developer.apple.com/forums/thread/737571)),
+pas un bug de ce projet.
+
+**1ère tentative de fix (a empiré les choses)** : ajouter
+`--options runtime` seul au `codesign` → l'app plante carrément au
+lancement (`dyld: Library not loaded... mapping process and mapped file
+have different Team IDs`) — le runtime durci sans le reste de la config
+est PIRE que l'ad-hoc simple (il applique une vérification STRICTE que
+l'ancien mode ne faisait pas).
+
+**2ème tentative (documentée comme LA solution ad-hoc)** :
+`packaging/entitlements.plist` avec
+`com.apple.security.cs.disable-library-validation = true`, posée via
+`codesign --options runtime --entitlements packaging/entitlements.plist`.
+Testé rigoureusement (app relancée, logs revérifiés, `lsof` revérifié) —
+**toujours aucune activité Sparkle**, même erreur `amfid` persiste. Donc
+même cette entitlement documentée comme solution ne suffit pas dans CE
+cas précis (raison exacte pas identifiée — possiblement une nuance sur
+QUEL binaire doit porter l'entitlement, ou une interaction avec `--deep`
+appliquant la même entitlement à Sparkle.framework lui-même plutôt que
+juste à l'exécutable hôte).
+
+**Conclusion** : la configuration codesign (`--options runtime
+--entitlements packaging/entitlements.plist`) est GARDÉE dans
+`build_app.sh` malgré tout — c'est la configuration correcte pour le jour
+où un VRAI certificat Developer ID (payant, compte Apple Developer
+Program) est disponible ; rien à changer dans le code à ce moment-là,
+juste remplacer `--sign -` par l'identité du certificat. **Sans ce
+certificat, le pipeline entier (GitHub release, appcast, signature
+EdDSA, menu "Rechercher les mises à jour…") est prêt et correct, mais
+n'a aucun effet observable pour l'instant** — à rediscuter avec
+l'utilisateur : soit accepter cette limite (distribution manuelle du zip
+continue comme avant), soit obtenir un compte Apple Developer Program
+(99$/an) pour un signing réel.
+
 ## Pas encore fait
 
 - ~~Vidéo au survol~~ **FAIT** (2026-09-02) : `HoverVideoThumbnail.swift`
