@@ -14,6 +14,17 @@
         <description>Mises à jour de DigitalMockup</description>
         <language>fr</language>
         <item>
+            <title>Version 1.0.2</title>
+            <pubDate>Mon, 14 Sep 2026 10:53:01 +0000</pubDate>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/gyarado04/digitalmockup/releases/download/v1.0.2/DigitalMockup.zip"
+                       sparkle:edSignature="YYnVYmgi6Vhn7j6I86dUmYHBDKwcz8mhXQpDAZIllqIYl/U7LuBh8zTLU1tUTfiVrj3XkwRauBiRPXqoWs94BQ=="
+                       length="65475797"
+                       type="application/octet-stream" />
+        </item>
+        <item>
             <title>Version 1.0.1</title>
             <pubDate>Mon, 14 Sep 2026 10:20:02 +0000</pubDate>
             <sparkle:version>2</sparkle:version>
