@@ -909,90 +909,94 @@ seule fois, avec l'aide de l'utilisateur dans SON Terminal) puis
 toutes les signatures futures — aucune interaction Trousseau requise.
 Fichier **jamais committé** (`.gitignore` : `sparkle_private_key*`).
 
-### ⚠️ LIMITE CONNUE, PAS ENCORE RÉSOLUE : Sparkle inerte en signature ad-hoc
-Après tout le pipeline mis en place et une v1.0.0 publiée, **le
-vérificateur de mise à jour ne se déclenche jamais en pratique** sur
-cette machine — confirmé rigoureusement (`/usr/bin/log show` — PAS le
-`log` de zsh, un builtin qui piège avec "too many arguments" ; `lsof -i`
-sur le process ; `ps aux` pour un XPC Sparkle qui ne spawn jamais) :
-aucune requête réseau, aucun log Sparkle, quelle que soit la localisation
-de l'app (`dist/` ou `/Applications`).
-
-**Cause identifiée précisément** (log `amfid`, confirmée par recherche
-web sur le forum développeur Apple) :
+### Signature ad-hoc → Sparkle bloqué → RÉSOLU avec un certificat GRATUIT
+Après tout le pipeline mis en place et une v1.0.0 publiée, le
+vérificateur de mise à jour ne se déclenchait jamais en pratique — confirmé
+rigoureusement (`/usr/bin/log show` — PAS le `log` de zsh, un builtin qui
+piège avec "too many arguments" ; `lsof -i` sur le process ; `ps aux` pour
+un XPC Sparkle qui ne spawnait jamais) : aucune requête réseau, aucun log
+Sparkle. Cause identifiée précisément via le log `amfid` :
 ```
 amfid: .../Sparkle.framework/Versions/B/Sparkle not valid:
 Error Domain=AppleMobileFileIntegrityError Code=-423
 "The file is adhoc signed or signed by an unknown certificate chain"
 ```
-La **"Library Validation"** du runtime durci macOS rejette
-`Sparkle.framework` (lui-même ad-hoc signé par le projet Sparkle) parce
-que l'app hôte n'a PAS de vrai certificat développeur Apple — limitation
-DOCUMENTÉE de Sparkle en environnement 100% ad-hoc (voir
-[developer.apple.com/forums/thread/737571](https://developer.apple.com/forums/thread/737571)),
-pas un bug de ce projet.
-
-**1ère tentative de fix (a empiré les choses)** : ajouter
-`--options runtime` seul au `codesign` → l'app plante carrément au
-lancement (`dyld: Library not loaded... mapping process and mapped file
-have different Team IDs`) — le runtime durci sans le reste de la config
-est PIRE que l'ad-hoc simple (il applique une vérification STRICTE que
-l'ancien mode ne faisait pas).
-
-**2ème tentative (documentée comme LA solution ad-hoc)** :
+La **Library Validation** du runtime durci macOS rejette
+`Sparkle.framework` en signature 100% ad-hoc — limitation documentée de
+Sparkle (voir
+[developer.apple.com/forums/thread/737571](https://developer.apple.com/forums/thread/737571)).
+2 tentatives de contournement en pur ad-hoc (`--options runtime` seul →
+a empiré les choses, crash "different Team IDs" ; puis
 `packaging/entitlements.plist` avec
-`com.apple.security.cs.disable-library-validation = true`, posée via
-`codesign --options runtime --entitlements packaging/entitlements.plist`.
-Testé rigoureusement (app relancée, logs revérifiés, `lsof` revérifié) —
-**toujours aucune activité Sparkle**, même erreur `amfid` persiste. Donc
-même cette entitlement documentée comme solution ne suffit pas dans CE
-cas précis (raison exacte pas identifiée — possiblement une nuance sur
-QUEL binaire doit porter l'entitlement, ou une interaction avec `--deep`
-appliquant la même entitlement à Sparkle.framework lui-même plutôt que
-juste à l'exécutable hôte).
+`com.apple.security.cs.disable-library-validation` → aucun effet non plus)
+ont toutes deux échoué — la conclusion à ce stade était qu'un VRAI
+certificat semblait nécessaire, payant (Developer ID, 99$/an) ou non.
 
-**Conclusion** : la configuration codesign (`--options runtime
---entitlements packaging/entitlements.plist`) est GARDÉE dans
-`build_app.sh` malgré tout — c'est la configuration correcte pour le jour
-où un VRAI certificat Developer ID (payant, compte Apple Developer
-Program) est disponible ; rien à changer dans le code à ce moment-là,
-juste remplacer `--sign -` par l'identité du certificat. **Sans ce
-certificat, le pipeline entier (GitHub release, appcast, signature
-EdDSA, menu "Rechercher les mises à jour…") est prêt et correct, mais
-n'a aucun effet observable pour l'instant** — à rediscuter avec
-l'utilisateur : soit accepter cette limite (distribution manuelle du zip
-continue comme avant), soit obtenir un compte Apple Developer Program
-(99$/an) pour un signing réel.
+**Décision utilisateur (2026-09-14)** : "on continue sans certificat pour
+l'instant" → menu "Rechercher les mises à jour…" masqué,
+`startingUpdater: false` (un bug réel corrigé au passage : `true` seul
+provoquait une popup d'erreur bloquante AU LANCEMENT sur un vrai poste
+utilisateur — "Unable to Check For Updates" — alors qu'elle semblait
+"silencieuse/inoffensive" d'après des tests seulement locaux ; **leçon**
+gardée : ne jamais déclarer un comportement "confirmé inoffensif" sur la
+base de tests SEULEMENT locaux).
 
-**Décision utilisateur (2026-09-14, même jour)** : "on continue sans
-certificat pour l'instant". 2 conséquences immédiates :
-- **Menu "Rechercher les mises à jour…" MASQUÉ** (`App.swift`,
-  `CommandGroup(after: .appInfo)` commenté, pas supprimé — facile à
-  réactiver) : un bouton visible qui ne peut rien trouver aurait juste
-  dérouté un collègue curieux.
-- **Bug réel corrigé le même jour, plus grave que prévu** : l'utilisateur
-  a testé le zip et reçu, AU LANCEMENT, une popup d'erreur bloquante
-  ("Unable to Check For Updates — The updater failed to start. Please
-  verify you have the latest version..."). Diagnostic initial faux :
-  `startingUpdater: true` avait été jugé "silencieux/inoffensif" d'après
-  des tests locaux (aucune requête réseau, aucun log Sparkle observé sur
-  la machine de dev) — mais sur un VRAI lancement utilisateur, la même
-  Library Validation qui bloque Sparkle fait ÉCHOUER le DÉMARRAGE du
-  contrôleur de façon VISIBLE (Sparkle affiche sa propre alerte d'erreur
-  native), pas un no-op silencieux comme observé ici. **Fix** :
-  `startingUpdater: false` — le contrôleur `SPUStandardUpdaterController`
-  existe toujours (prêt pour un vrai certificat plus tard) mais ne tente
-  RIEN tout seul, donc aucune popup possible tant que rien ne l'invoque
-  explicitement (et le menu qui l'invoquait est déjà masqué). **v1.0.1**
-  publiée avec ce correctif via `packaging/release.sh` ; testé
-  rigoureusement avant publication (build + install dans `/Applications`
-  + relance + `/usr/bin/log show` sur 30s, aucune trace Sparkle ni
-  nouveau rapport de crash) avant d'envoyer le nouveau zip à
-  l'utilisateur. **Leçon** : sur ce projet, ne jamais déclarer un
-  comportement "confirmé inoffensif" à partir de tests SEULEMENT locaux
-  quand un vrai utilisateur peut avoir un contexte macOS différent
-  (version, état Gatekeeper/AMFI) — vérifier via un VRAI retour terrain
-  avant d'affirmer qu'un correctif partiel suffit.
+**Rebondissement le même jour** : question posée — "il y a pas de
+solution pour faire sans les 99$ par an ?" — un certificat **"Apple
+Development" GRATUIT** (Xcode → Settings → Accounts → Apple ID personnel,
+PAS le programme payant) donne une vraie identité de signature (pas
+ad-hoc), et la Library Validation vérifie la cohérence d'identité entre
+l'app et ses frameworks embarqués, pas spécifiquement "developer ID payant
+contre gratuit". Testé — **ça marche**.
+
+**Mise en place** :
+- Compte Apple ID personnel ajouté dans Xcode, certificat "Apple
+  Development" généré via "Manage Certificates… → +".
+- **Piège rencontré** : le certificat généré n'était PAS reconnu comme une
+  identité de signature valide (`security find-identity -v -p codesigning`
+  → "0 valid identities found") malgré sa présence dans le Trousseau —
+  `codesign` échouait avec "unable to build chain to self-signed root".
+  Cause : la chaîne de confiance était incomplète — le certificat
+  intermédiaire Apple installé (WWDR) était de la MAUVAISE génération
+  (comparaison précise des "Key Identifier" X.509 du certificat dev vs de
+  l'intermédiaire installé : le dev cert exigeait la génération **G3**,
+  une autre génération était présente). Fix : téléchargé et installé
+  `AppleWWDRCAG3.cer` + `AppleIncRootCertificate.cer` (certificats
+  officiels Apple, `www.apple.com/certificateauthority/`) via `security
+  add-certificates`/`add-trusted-cert` — `security verify-cert` confirme
+  ensuite la chaîne valide, `find-identity` trouve l'identité.
+- `packaging/build_app.sh` détecte maintenant AUTOMATIQUEMENT ce
+  certificat (`security find-identity -v -p codesigning | grep "Apple
+  Development"`) et signe avec — repli sur ad-hoc (`-`) si aucun trouvé
+  (portable : fonctionne aussi sur une machine pas encore configurée,
+  juste sans Sparkle fonctionnel dans ce cas).
+- `App.swift` : `startingUpdater: true` réactivé, menu "Rechercher les
+  mises à jour…" redécommenté.
+- **Testé bout en bout, avec succès** : "You're up to date! DigitalMockup
+  1.0.1 is currently the newest version available." (vérification
+  manuelle), PUIS le vrai scénario "mise à jour disponible" (v1.0.1
+  installée détecte et propose la v1.0.2 fraîchement publiée) —
+  **confirmé par l'utilisateur en personne sur sa machine**.
+- **Piège rencontré pendant CE test** : le tout premier essai du scénario
+  "mise à jour disponible" a échoué (Sparkle affichait encore "1.0.1 is
+  the newest" après publication de la 1.0.2) — pas un bug Sparkle, un
+  **cache CDN** : `raw.githubusercontent.com` sert `cache-control:
+  max-age=300` (5 min), confirmé en comparant une requête normale (cache
+  HIT, contenu périmé) contre une requête avec paramètre anti-cache
+  (`?bust=...`, contenu à jour immédiat). Attendu l'expiration du cache
+  (`ScheduleWakeup`, ~200s) puis retesté avec succès. **À savoir pour la
+  suite** : une mise à jour publiée peut mettre jusqu'à 5 minutes avant
+  d'être vue par les apps qui vérifient à ce moment précis — non
+  bloquant pour un usage interne petite équipe, juste à ne pas s'étonner
+  si un test immédiat après publication semble ne rien détecter.
+
+**Résultat final** : mises à jour automatiques pleinement fonctionnelles,
+SANS payer les 99$/an — juste un compte Apple personnel gratuit + le bon
+certificat intermédiaire Apple installé une fois. `packaging/release.sh`
+publie ; les apps déjà installées se mettent à jour toutes seules (petite
+fenêtre native de confirmation à chaque mise à jour trouvée, norme de
+sécurité macOS — pas de silence total possible, mais aucune réinstallation
+manuelle requise).
 
 ## Pas encore fait
 

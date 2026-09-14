@@ -111,18 +111,28 @@ cat > "$APP_DIR/Contents/Info.plist" << PLIST
 </plist>
 PLIST
 
-echo "Signature ad-hoc…"
+# Identité de signature — 1ère identité "Apple Development" trouvée dans
+# le Trousseau (certificat GRATUIT, compte Apple personnel dans Xcode :
+# Xcode → Settings → Accounts → "+" → Apple ID, puis "Manage
+# Certificates…" → "+" → "Apple Development" — voir README "Mises à jour
+# automatiques" pour le pourquoi). Repli sur ad-hoc (`-`) si aucune
+# trouvée (machine pas encore configurée, ou CI) — reste FONCTIONNEL pour
+# tout sauf Sparkle (voir même section du README : Library Validation du
+# runtime durci rejette Sparkle.framework sans un vrai certificat).
+SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep "Apple Development" | head -1 | sed -E 's/.*"(.*)"/\1/')
+if [ -z "$SIGN_IDENTITY" ]; then
+  echo "⚠️  Aucun certificat \"Apple Development\" trouvé — signature ad-hoc"
+  echo "   (l'app fonctionne, mais Sparkle restera bloqué — voir README)."
+  SIGN_IDENTITY="-"
+else
+  echo "Signature avec : $SIGN_IDENTITY"
+fi
 xattr -cr "$APP_DIR"
-# --options runtime + entitlements.plist (2026-09-14) : nécessaires pour
-# Sparkle (voir packaging/entitlements.plist et README "Mises à jour
-# automatiques" pour le détail) — SANS ÊTRE SUFFISANTS en ad-hoc pur : la
-# "Library Validation" du runtime durci continue de rejeter
-# Sparkle.framework tant qu'il n'y a pas un VRAI certificat développeur
-# Apple (Developer ID, payant) derrière la signature. Gardé quand même :
-# c'est la configuration CORRECTE qu'il faudra de toute façon le jour où
-# un vrai certificat est disponible — rien à changer ici à ce moment-là,
-# juste `--sign -` à remplacer par l'identité du certificat.
-codesign --force --deep --options runtime --entitlements packaging/entitlements.plist --sign - "$APP_DIR"
+# --options runtime + entitlements.plist : nécessaires pour Sparkle (voir
+# packaging/entitlements.plist et README "Mises à jour automatiques") —
+# la Library Validation du runtime durci exige À LA FOIS ces options ET
+# un vrai certificat (pas suffisant seul en ad-hoc pur, confirmé).
+codesign --force --deep --options runtime --entitlements packaging/entitlements.plist --sign "$SIGN_IDENTITY" "$APP_DIR"
 
 echo "Vérification…"
 codesign --verify --deep --strict "$APP_DIR"
@@ -140,6 +150,11 @@ cp "$ZIP_PATH" "$DIST_DIR/"
 echo ""
 echo "✓ App construite : $DIST_DIR/$APP_NAME.app (et .zip à côté)"
 echo "  Glisse-la dans /Applications puis lance-la en double-clic."
-echo "  Non signée par un compte développeur Apple (signature ad-hoc"
-echo "  seulement) : au premier lancement, macOS peut bloquer — clic droit"
-echo "  → Ouvrir, une seule fois."
+if [ "$SIGN_IDENTITY" = "-" ]; then
+  echo "  Non signée par un compte Apple (ad-hoc) : au premier lancement,"
+  echo "  macOS peut bloquer — clic droit → Ouvrir, une seule fois."
+else
+  echo "  Signée avec un certificat Apple Development (gratuit, pas"
+  echo "  notarié) : au premier lancement, macOS peut quand même bloquer —"
+  echo "  clic droit → Ouvrir, une seule fois."
+fi

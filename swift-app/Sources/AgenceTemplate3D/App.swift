@@ -13,21 +13,20 @@ struct AgenceTemplate3DApp: App {
     /// la vie du process — même pattern que documenté par Sparkle
     /// lui-même pour SwiftUI.
     ///
-    /// `startingUpdater: false` (2026-09-14, bug réel) — essayé `true`
-    /// d'abord en pensant l'échec silencieux/inoffensif (confirmé
-    /// "inerte" via logs/réseau SUR CETTE machine de dev), mais sur un
-    /// vrai lancement utilisateur ça affiche une popup d'erreur bloquante
-    /// ("Unable to Check For Updates — The updater failed to start") : la
-    /// Library Validation qui bloque Sparkle (voir README.md "Mises à
-    /// jour automatiques") fait ÉCHOUER le démarrage de façon VISIBLE
-    /// dans ce cas, pas juste un no-op silencieux comme observé ici.
-    /// `false` : le contrôleur existe (prêt pour plus tard, un vrai
-    /// certificat) mais NE DÉMARRE RIEN tout seul — aucune popup
-    /// possible tant que rien ne l'invoque, et le menu "Rechercher les
-    /// mises à jour…" est de toute façon déjà masqué (voir `.commands`
-    /// plus bas).
+    /// `startingUpdater: true` — démarre le vérificateur en arrière-plan
+    /// dès le lancement (respecte `SUEnableAutomaticChecks`/
+    /// `SUScheduledCheckInterval` de l'Info.plist). Un 1er essai avec
+    /// `true` avait été annulé (voir historique Git) après une popup
+    /// d'erreur bloquante en environnement 100% ad-hoc ("Unable to Check
+    /// For Updates" — Library Validation rejetait Sparkle.framework, voir
+    /// README.md "Mises à jour automatiques"). Réactivé le même jour une
+    /// fois l'app signée avec un vrai certificat "Apple Development"
+    /// (GRATUIT, compte Apple personnel — voir README.md, pas besoin du
+    /// programme payant à 99$/an) : testé bout en bout avec succès
+    /// ("You're up to date! DigitalMockup 1.0.1 is currently the newest
+    /// version available.").
     private let updaterController = SPUStandardUpdaterController(
-        startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil
+        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
     )
 
     init() {
@@ -69,23 +68,18 @@ struct AgenceTemplate3DApp: App {
         // _build_menu — cette app est mono-fenêtre, "Nouvelle fenêtre"
         // n'aurait aucun sens ici.
         .commands {
-            // Entrée de menu "Rechercher les mises à jour…" MASQUÉE le
-            // 2026-09-14 (demande explicite) — tant que l'app n'a qu'une
-            // signature ad-hoc, Sparkle ne peut de toute façon rien
-            // trouver (voir README.md "Mises à jour automatiques" —
-            // Library Validation du runtime durci bloque
-            // Sparkle.framework sans un vrai certificat Developer ID) :
-            // un bouton qui ne fait rien de visible aurait juste
-            // dérouté un collègue curieux. `updaterController` reste
-            // actif en arrière-plan (inoffensif, confirmé inerte) —
-            // pour réactiver ce menu le jour où un vrai certificat est
-            // disponible, redécommenter ce `CommandGroup` :
-            //
-            // CommandGroup(after: .appInfo) {
-            //     Button("Rechercher les mises à jour…") {
-            //         updaterController.checkForUpdates(nil)
-            //     }
-            // }
+            // Emplacement standard Sparkle : juste après "À propos de…"
+            // dans le menu de l'app (`.appInfo`). Masqué du 2026-09-14 au
+            // 2026-09-14 (même jour) tant que Sparkle était bloqué par la
+            // Library Validation en ad-hoc — réactivé une fois l'app
+            // signée avec un vrai certificat (voir doc de
+            // `updaterController` plus haut) et le mécanisme testé avec
+            // succès.
+            CommandGroup(after: .appInfo) {
+                Button("Rechercher les mises à jour…") {
+                    updaterController.checkForUpdates(nil)
+                }
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Nouveau projet depuis un template…") { appState.showTemplatePicker = true }
                 Button("Ouvrir un fichier .blend existant…") { appState.presentOpenBlendPanel() }

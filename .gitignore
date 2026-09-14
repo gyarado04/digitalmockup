@@ -29,3 +29,6 @@ packaging/build_app.sh
 # gardée dans le Trousseau macOS uniquement (voir README "Mises à jour").
 *.pem
 sparkle_private_key*
+
+# État local de session Claude Code (pas du code source)
+.claude/
