@@ -11,17 +11,23 @@ struct AgenceTemplate3DApp: App {
     /// `@State`) : `SPUStandardUpdaterController` est une classe (référence
     /// stable), et ce `App` SwiftUI n'est instancié qu'une fois pour toute
     /// la vie du process — même pattern que documenté par Sparkle
-    /// lui-même pour SwiftUI. `startingUpdater: true` : démarre le
-    /// vérificateur en arrière-plan dès le lancement (respecte
-    /// `SUEnableAutomaticChecks`/`SUScheduledCheckInterval` de l'Info.plist
-    /// — pas de vérification intrusive au tout premier lancement grâce à
-    /// Sparkle qui attend un délai avant la 1ère vérif auto). L'entrée de
-    /// menu "Rechercher les mises à jour…" est MASQUÉE pour l'instant
-    /// (voir commentaire dans `.commands` plus bas) — `updaterController`
-    /// reste quand même actif en arrière-plan (inoffensif, confirmé
-    /// inerte tant que l'app n'a qu'une signature ad-hoc).
+    /// lui-même pour SwiftUI.
+    ///
+    /// `startingUpdater: false` (2026-09-14, bug réel) — essayé `true`
+    /// d'abord en pensant l'échec silencieux/inoffensif (confirmé
+    /// "inerte" via logs/réseau SUR CETTE machine de dev), mais sur un
+    /// vrai lancement utilisateur ça affiche une popup d'erreur bloquante
+    /// ("Unable to Check For Updates — The updater failed to start") : la
+    /// Library Validation qui bloque Sparkle (voir README.md "Mises à
+    /// jour automatiques") fait ÉCHOUER le démarrage de façon VISIBLE
+    /// dans ce cas, pas juste un no-op silencieux comme observé ici.
+    /// `false` : le contrôleur existe (prêt pour plus tard, un vrai
+    /// certificat) mais NE DÉMARRE RIEN tout seul — aucune popup
+    /// possible tant que rien ne l'invoque, et le menu "Rechercher les
+    /// mises à jour…" est de toute façon déjà masqué (voir `.commands`
+    /// plus bas).
     private let updaterController = SPUStandardUpdaterController(
-        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
+        startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil
     )
 
     init() {

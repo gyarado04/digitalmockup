@@ -964,6 +964,36 @@ l'utilisateur : soit accepter cette limite (distribution manuelle du zip
 continue comme avant), soit obtenir un compte Apple Developer Program
 (99$/an) pour un signing réel.
 
+**Décision utilisateur (2026-09-14, même jour)** : "on continue sans
+certificat pour l'instant". 2 conséquences immédiates :
+- **Menu "Rechercher les mises à jour…" MASQUÉ** (`App.swift`,
+  `CommandGroup(after: .appInfo)` commenté, pas supprimé — facile à
+  réactiver) : un bouton visible qui ne peut rien trouver aurait juste
+  dérouté un collègue curieux.
+- **Bug réel corrigé le même jour, plus grave que prévu** : l'utilisateur
+  a testé le zip et reçu, AU LANCEMENT, une popup d'erreur bloquante
+  ("Unable to Check For Updates — The updater failed to start. Please
+  verify you have the latest version..."). Diagnostic initial faux :
+  `startingUpdater: true` avait été jugé "silencieux/inoffensif" d'après
+  des tests locaux (aucune requête réseau, aucun log Sparkle observé sur
+  la machine de dev) — mais sur un VRAI lancement utilisateur, la même
+  Library Validation qui bloque Sparkle fait ÉCHOUER le DÉMARRAGE du
+  contrôleur de façon VISIBLE (Sparkle affiche sa propre alerte d'erreur
+  native), pas un no-op silencieux comme observé ici. **Fix** :
+  `startingUpdater: false` — le contrôleur `SPUStandardUpdaterController`
+  existe toujours (prêt pour un vrai certificat plus tard) mais ne tente
+  RIEN tout seul, donc aucune popup possible tant que rien ne l'invoque
+  explicitement (et le menu qui l'invoquait est déjà masqué). **v1.0.1**
+  publiée avec ce correctif via `packaging/release.sh` ; testé
+  rigoureusement avant publication (build + install dans `/Applications`
+  + relance + `/usr/bin/log show` sur 30s, aucune trace Sparkle ni
+  nouveau rapport de crash) avant d'envoyer le nouveau zip à
+  l'utilisateur. **Leçon** : sur ce projet, ne jamais déclarer un
+  comportement "confirmé inoffensif" à partir de tests SEULEMENT locaux
+  quand un vrai utilisateur peut avoir un contexte macOS différent
+  (version, état Gatekeeper/AMFI) — vérifier via un VRAI retour terrain
+  avant d'affirmer qu'un correctif partiel suffit.
+
 ## Pas encore fait
 
 - ~~Vidéo au survol~~ **FAIT** (2026-09-02) : `HoverVideoThumbnail.swift`
