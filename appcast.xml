@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Flux de mises à jour Sparkle — mis à jour AUTOMATIQUEMENT par
+  packaging/release.sh à chaque nouvelle version publiée, jamais à la
+  main. Hébergé via raw.githubusercontent.com (voir SUFeedURL dans
+  packaging/build_app.sh) : l'app installée le relit périodiquement et
+  propose d'installer le plus récent <item> si sa version est plus
+  récente que celle installée.
+-->
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>DigitalMockup</title>
+        <link>https://raw.githubusercontent.com/gyarado04/digitalmockup/main/appcast.xml</link>
+        <description>Mises à jour de DigitalMockup</description>
+        <language>fr</language>
+        <item>
+            <title>Version 1.0.0</title>
+            <pubDate>Mon, 14 Sep 2026 10:01:18 +0000</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/gyarado04/digitalmockup/releases/download/v1.0.0/DigitalMockup.zip"
+                       sparkle:edSignature="SChre++duwMY2PDFKvnqFuD2xKFYD0NBTJdjLF52kyrtirXjn/3A3uYG9i1riHgY/BohVp719l72jf7MWp03Ag=="
+                       length="65424034"
+                       type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>
